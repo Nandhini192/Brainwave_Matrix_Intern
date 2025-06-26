@@ -1,0 +1,59 @@
+import re
+import requests
+import tldextract
+
+# OPTIONAL: Add your VirusTotal API key here
+VIRUSTOTAL_API_KEY = "your_api_key_here"
+
+# Heuristics for phishing detection
+def check_url_features(url):
+    features = {
+        "Has IP address": bool(re.search(r'http[s]?://\d{1,3}(\.\d{1,3}){3}', url)),
+        "Too many subdomains": len(tldextract.extract(url).subdomain.split('.')) > 2,
+        "Has @ symbol": "@" in url,
+        "Uses https": url.startswith("https://"),
+        "Too long": len(url) > 75,
+        "Has hyphens": '-' in tldextract.extract(url).domain
+    }
+    score = sum(features.values())
+    return features, score
+
+# Check with VirusTotal API (optional)
+def check_virustotal(url):
+    if not VIRUSTOTAL_API_KEY:
+        return "Skipped (no API key)"
+    headers = {"x-apikey": VIRUSTOTAL_API_KEY}
+    response = requests.get(
+        f"https://www.virustotal.com/api/v3/urls/{requests.utils.quote(url)}",
+        headers=headers
+    )
+    if response.status_code == 200:
+        data = response.json()
+        return data
+    else:
+        return "API error or invalid URL"
+
+# Main function
+def scan_url(url):
+    print(f"\n🔍 Scanning URL: {url}")
+    features, score = check_url_features(url)
+
+    print("\n📋 Feature Analysis:")
+    for f, v in features.items():
+        print(f"- {f}: {'Yes' if v else 'No'}")
+
+    print(f"\n⚠️ Heuristic Risk Score: {score}/6")
+    if score >= 4:
+        print("🔴 This URL is likely **suspicious**!")
+    elif score >= 2:
+        print("🟠 This URL might be **potentially risky**.")
+    else:
+        print("🟢 This URL seems **safe** (based on heuristics).")
+
+    print("\n🛡️ VirusTotal Check:")
+    vt_result = check_virustotal(url)
+    print(vt_result if isinstance(vt_result, str) else vt_result.get("data", "No data"))
+
+# Example usage
+if __name__ == "__main__":
+    test_url = input("
